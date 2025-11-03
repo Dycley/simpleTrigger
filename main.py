@@ -541,6 +541,12 @@ class MonitorGUI:
     def start_screenshot(self):
         """开始截图（使用高亮选区方法）"""
         self.log_message("请框选要监控的屏幕区域...")
+        
+        # 暂停全局热键监听以避免冲突
+        if self.hotkey_listener and self.hotkey_listener.is_alive():
+            self.hotkey_listener.stop()
+            self.log_message("热键监听已暂停")
+
         self.root.withdraw()
         time.sleep(0.3)
 
@@ -551,6 +557,9 @@ class MonitorGUI:
         screenshot_window.config(cursor='cross')
         screenshot_window.overrideredirect(True)
         screenshot_window.grab_set()
+
+        # 强制设置焦点
+        screenshot_window.focus_force()
 
         # 预先截取全屏
         full_screenshot = ImageGrab.grab(all_screens=True)
@@ -621,16 +630,21 @@ class MonitorGUI:
             
             screenshot_window.destroy()
             self.root.deiconify()
+            # 恢复热键监听
+            self.setup_hotkeys()
         
         def on_cancel(e=None):
             screenshot_window.destroy()
             self.root.deiconify()
             self.log_message("已取消截图")
+            # 恢复热键监听
+            self.setup_hotkeys()
 
         canvas.bind('<ButtonPress-1>', on_mouse_down)
         canvas.bind('<B1-Motion>', on_mouse_drag)
         canvas.bind('<ButtonRelease-1>', on_mouse_up)
         screenshot_window.bind('<Escape>', on_cancel)
+        screenshot_window.protocol("WM_DELETE_WINDOW", on_cancel)
 
     def pick_color_from_screenshot(self):
         """从截图中取色"""
