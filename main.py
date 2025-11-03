@@ -38,6 +38,11 @@ class ScreenColorMonitor:
         self.trigger_count = 0
         self.last_trigger_time = 0
         
+        # FPS 统计
+        self.detection_count = 0
+        self.last_fps_check_time = time.time()
+        self.fps = 0
+        
     def load_config(self):
         """加载配置文件"""
         default_config = {
@@ -172,11 +177,16 @@ class ScreenColorMonitor:
     def monitor_loop(self):
         """监控循环"""
         print("监控已启动...")
-        check_interval = self.config['check_interval_ms'] / 1000.0
+        
+        # FPS 统计初始化
+        self.detection_count = 0
+        self.last_fps_check_time = time.time()
         
         # 在监控线程中创建 mss 实例（避免线程安全问题）
         with mss.mss() as sct:
             while self.is_running:
+                loop_start_time = time.perf_counter()
+                
                 if self.is_paused:
                     time.sleep(0.1)
                     continue
@@ -184,6 +194,14 @@ class ScreenColorMonitor:
                 try:
                     # 截取屏幕
                     img = self.capture_screen_region(sct)
+                    
+                    # 更新FPS
+                    self.detection_count += 1
+                    current_time = time.time()
+                    if current_time - self.last_fps_check_time >= 1.0:
+                        self.fps = self.detection_count / (current_time - self.last_fps_check_time)
+                        self.detection_count = 0
+                        self.last_fps_check_time = current_time
                     
                     # 检查颜色匹配
                     percentage, mask = self.check_color_match(img)
@@ -193,12 +211,17 @@ class ScreenColorMonitor:
                     if percentage >= threshold:
                         self.press_key()
                     
-                    # 等待指定的检查间隔
-                    time.sleep(check_interval)
-                    
                 except Exception as e:
                     print(f"监控错误: {e}")
                     time.sleep(0.1)
+                
+                # 精确延时控制
+                target_interval = self.config['check_interval_ms'] / 1000.0
+                if target_interval > 0:
+                    loop_duration = time.perf_counter() - loop_start_time
+                    time_to_wait = target_interval - loop_duration
+                    if time_to_wait > 0:
+                        time.sleep(time_to_wait)
         
         print("监控已停止")
     
@@ -243,6 +266,9 @@ class MonitorGUI:
         # 热键监听
         self.hotkey_listener = None
         self.setup_hotkeys()
+        
+        # 启动FPS更新
+        self.update_fps_label()
     
     def setup_ui(self):
         """设置用户界面"""
@@ -387,6 +413,14 @@ class MonitorGUI:
         status_frame = ttk.LabelFrame(self.root, text="运行状态", padding=10)
         status_frame.pack(fill="both", expand=True, padx=20, pady=5)
         
+        # 状态信息行
+        stats_line = tk.Frame(status_frame)
+        stats_line.pack(fill="x", pady=2, padx=5)
+        
+        tk.Label(stats_line, text="检测频率:").pack(side="left")
+        self.fps_label = tk.Label(stats_line, text="N/A", font=("Consolas", 10), anchor="w")
+        self.fps_label.pack(side="left", padx=5)
+        
         self.status_text = tk.Text(status_frame, height=10, width=70, state="disabled")
         self.status_text.pack(fill="both", expand=True)
         
@@ -397,6 +431,15 @@ class MonitorGUI:
         info_text = "说明：程序会监控指定区域，当目标颜色占比超过阈值时自动按键\n" \
                    "热键：F9 - 启动/停止 | F10 - 暂停/恢复"
         tk.Label(info_frame, text=info_text, justify="left", fg="gray").pack(anchor="w")
+    
+    def update_fps_label(self):
+        """定时更新检测频率显示"""
+        if self.monitor.is_running and not self.monitor.is_paused:
+            self.fps_label.config(text=f"{self.monitor.fps:.1f} FPS")
+        else:
+            self.fps_label.config(text="N/A")
+        # 每500ms更新一次
+        self.root.after(500, self.update_fps_label)
     
     def update_color_preview(self, event=None):
         """更新颜色预览"""

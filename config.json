@@ -1,21 +1,21 @@
 {
     "monitor_region": {
-        "left": 1269,
-        "top": 502,
-        "width": 31,
-        "height": 33
+        "left": 1259,
+        "top": 505,
+        "width": 46,
+        "height": 58
     },
     "target_color": {
-        "r": 253,
-        "g": 247,
-        "b": 240
+        "r": 254,
+        "g": 252,
+        "b": 250
     },
-    "color_tolerance": 10,
-    "threshold_percentage": 80.5,
+    "color_tolerance": 22,
+    "threshold_percentage": 67.5,
     "press_key": "e",
     "press_delay_ms": 0,
     "cooldown_ms": 1000,
-    "check_interval_ms": 16,
+    "check_interval_ms": 10,
     "hotkey_start_stop": "f9",
     "hotkey_pause_resume": "f10",
     "hotkey_screenshot": "f8"
